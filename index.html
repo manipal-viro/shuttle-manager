@@ -46,13 +46,20 @@
 
 <!-- ===================== HEADER ===================== -->
 <header class="w-full max-w-md px-4 pt-6 pb-2">
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between gap-2">
     <h1 class="text-xl font-extrabold text-slate-800 flex items-center gap-2">
       <span>🚌</span> Office Bus System
     </h1>
     <span id="connDot" class="w-2.5 h-2.5 rounded-full bg-slate-300" title="Connection status"></span>
   </div>
   <p id="currentUserLine" class="text-xs text-slate-500 mt-1">No name selected yet</p>
+
+  <button id="installBtn" class="hidden mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm transition text-center">
+    ⬇️ Install App
+  </button>
+  <p id="iosInstallHint" class="hidden mt-2 text-xs text-slate-500 text-center">
+    On iPhone: tap <span class="font-semibold">Share</span> ▵ then <span class="font-semibold">Add to Home Screen</span>.
+  </p>
 </header>
 
 <!-- ===================== TAB NAV ===================== -->
@@ -122,6 +129,15 @@
         </button>
       </div>
       <p class="text-xs text-slate-400">Showing today's status for the selected trip. Auto-refreshes every 15s.</p>
+
+      <div class="flex items-center gap-2 pt-1">
+        <input id="contactsPasscode" type="password" placeholder="Admin passcode to show call/WhatsApp"
+          class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button id="unlockContactsBtn" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-lg transition whitespace-nowrap">
+          🔒 Unlock
+        </button>
+      </div>
+      <p id="contactsStatusMsg" class="text-xs text-center"></p>
 
       <div class="grid grid-cols-4 gap-1.5 text-center text-xs font-semibold">
         <div class="bg-emerald-50 text-emerald-700 rounded-lg py-2">
@@ -197,16 +213,106 @@
    ========================================================= */
 const CONFIG = {
   // Paste your Apps Script Web App /exec URL here after deploying Code.gs
-  API_URL: 'https://script.google.com/macros/s/AKfycbxsCz7TJcyDVEWurQamWBd2TDTIFWuC1PFTeLtteNFL49MjWQXSSE2BLxhgc7W77usU/exec',
+  API_URL: 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE',
   TRIPS: ['Morning Pickup', 'Lunch Drop', 'Lunch Pickup', 'Evening Drop'],
+  // Trip time windows in IST, used to pick a sensible default trip automatically.
+  // End times are exclusive; last window (Evening Drop) covers 15:00–20:00.
+  TRIP_WINDOWS_IST: [
+    { trip: 'Morning Pickup', startMin: 6 * 60,        endMin: 11 * 60 },
+    { trip: 'Lunch Drop',     startMin: 11 * 60,        endMin: 13 * 60 + 30 },
+    { trip: 'Lunch Pickup',   startMin: 13 * 60 + 30,   endMin: 15 * 60 },
+    { trip: 'Evening Drop',   startMin: 15 * 60,        endMin: 20 * 60 }
+  ],
   POLL_INTERVAL_MS: 15000
 };
+
+/* =========================================================
+   REGISTER SERVICE WORKER — do this immediately (not buried
+   inside init()) so Chrome sees installability criteria met
+   as early as possible.
+   ========================================================= */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+/* =========================================================
+   INSTALL PROMPT (Android/Chrome "Install app" banner)
+   ========================================================= */
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('installBtn').classList.remove('hidden');
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('installBtn').classList.add('hidden');
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').classList.add('hidden');
+});
+
+// iOS Safari has no beforeinstallprompt — show manual instructions instead,
+// but only if not already running as an installed/standalone app.
+(function iosInstallHint() {
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true ||
+                        window.matchMedia('(display-mode: standalone)').matches;
+  if (isIos && !isStandalone) {
+    document.getElementById('iosInstallHint').classList.remove('hidden');
+  }
+})();
+
+/* =========================================================
+   TRIP AUTO-DEFAULT (based on current time in IST)
+   ========================================================= */
+function getIstMinutesNow() {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const istMs = utcMs + 5.5 * 60 * 60000;
+  const ist = new Date(istMs);
+  return ist.getHours() * 60 + ist.getMinutes();
+}
+
+function getDefaultTripByTime() {
+  const minutes = getIstMinutesNow();
+  for (const w of CONFIG.TRIP_WINDOWS_IST) {
+    if (minutes >= w.startMin && minutes < w.endMin) return w.trip;
+  }
+  // Outside all windows (late night / early morning) — fall back to the
+  // next upcoming trip, or the first trip of the day if none is upcoming.
+  const upcoming = CONFIG.TRIP_WINDOWS_IST.find(w => minutes < w.startMin);
+  return upcoming ? upcoming.trip : CONFIG.TRIP_WINDOWS_IST[0].trip;
+}
+
+function resolveDefaultTrip() {
+  const storedDate = localStorage.getItem('bus_selectedTripDate');
+  const storedTrip = localStorage.getItem('bus_selectedTrip');
+  if (storedDate === todayStr() && storedTrip && CONFIG.TRIPS.includes(storedTrip)) {
+    return storedTrip;
+  }
+  const def = getDefaultTripByTime();
+  localStorage.setItem('bus_selectedTrip', def);
+  localStorage.setItem('bus_selectedTripDate', todayStr());
+  return def;
+}
+
+function persistSelectedTrip(trip) {
+  localStorage.setItem('bus_selectedTrip', trip);
+  localStorage.setItem('bus_selectedTripDate', todayStr());
+}
 
 /* =========================================================
    STATE
    ========================================================= */
 let staffList = [];
-let selectedTrip = localStorage.getItem('bus_selectedTrip') || null;
+let selectedTrip = null; // resolved in init() once todayStr() etc. are available
 let selectedName = localStorage.getItem('bus_selectedName') || null;
 let selectedStatus = null;
 let html5QrCode = null;
@@ -286,7 +392,7 @@ function renderTripButtons() {
       (trip === selectedTrip ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600');
     b.addEventListener('click', () => {
       selectedTrip = trip;
-      localStorage.setItem('bus_selectedTrip', trip);
+      persistSelectedTrip(trip);
       renderTripButtons();
       populateAdminTripSelect(); // keep in sync visually if desired
       populateRosterTripSelect();
@@ -511,6 +617,7 @@ document.getElementById('announceBtn').addEventListener('click', async () => {
    ROSTER TAB — who's riding / boarded / pending / not riding
    ========================================================= */
 let rosterInterval = null;
+let contactsMap = null; // name -> phone, populated only after passcode unlock (not persisted)
 
 function populateRosterTripSelect() {
   const sel = document.getElementById('rosterTripSelect');
@@ -527,6 +634,44 @@ function populateRosterTripSelect() {
 document.getElementById('rosterTripSelect').addEventListener('change', loadRoster);
 document.getElementById('rosterRefreshBtn').addEventListener('click', loadRoster);
 
+document.getElementById('unlockContactsBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('contactsStatusMsg');
+  const passcode = document.getElementById('contactsPasscode').value.trim();
+  if (!passcode) {
+    msg.textContent = '⚠️ Enter the admin passcode.';
+    msg.className = 'text-xs text-center text-amber-600';
+    return;
+  }
+  msg.textContent = 'Checking…';
+  msg.className = 'text-xs text-center text-slate-500';
+  try {
+    const resp = await apiPost({ action: 'getContacts', passcode });
+    if (!resp.success) throw new Error(resp.error || 'Unknown error');
+    contactsMap = {};
+    resp.data.forEach(p => { contactsMap[p.name] = p.phone; });
+    msg.textContent = '✅ Contacts unlocked for this session';
+    msg.className = 'text-xs text-center text-emerald-600';
+    loadRoster(); // re-render with call/WhatsApp links now available
+  } catch (err) {
+    msg.textContent = '❌ ' + err.message;
+    msg.className = 'text-xs text-center text-rose-600';
+  }
+});
+
+// Normalizes a raw phone string into tel:/wa.me links. Assumes India (+91)
+// when a 10-digit local number is given with no country code — adjust here
+// if your office is elsewhere.
+function phoneLinks(rawPhone) {
+  if (!rawPhone) return null;
+  const digits = String(rawPhone).replace(/\D/g, '');
+  if (!digits) return null;
+  const withCountry = digits.length === 10 ? '91' + digits : digits;
+  return {
+    tel: 'tel:+' + withCountry,
+    wa: 'https://wa.me/' + withCountry
+  };
+}
+
 function renderRosterGroup(containerId, people, extraFn) {
   const el = document.getElementById(containerId);
   if (!people.length) {
@@ -535,8 +680,14 @@ function renderRosterGroup(containerId, people, extraFn) {
   }
   el.innerHTML = people.map(p => {
     const extra = extraFn ? extraFn(p) : '';
+    const phone = contactsMap ? contactsMap[p.name] : null;
+    const links = phoneLinks(phone);
+    const contactHtml = links
+      ? `<a href="${links.tel}" class="ml-2 text-blue-600" title="Call">📞</a>
+         <a href="${links.wa}" target="_blank" rel="noopener" class="ml-1 text-emerald-600" title="WhatsApp">💬</a>`
+      : '';
     return `<div class="flex items-center justify-between border-b border-slate-50 pb-1">
-      <span>${p.name}</span><span class="text-xs text-slate-400">${extra}</span>
+      <span>${p.name}${contactHtml}</span><span class="text-xs text-slate-400">${extra}</span>
     </div>`;
   }).join('');
 }
@@ -628,6 +779,7 @@ async function loadStaff() {
 }
 
 async function init() {
+  selectedTrip = resolveDefaultTrip();
   renderTripButtons();
   populateAdminTripSelect();
   populateRosterTripSelect();
@@ -643,10 +795,6 @@ async function init() {
   await loadStaff();
   await pollArrivals();
   setInterval(pollArrivals, CONFIG.POLL_INTERVAL_MS);
-
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
 }
 
 init();
