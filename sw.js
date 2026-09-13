@@ -1,4 +1,4 @@
-const CACHE_NAME = 'office-bus-system-v2';
+const CACHE_NAME = 'mahe-bus-v3';
 const APP_SHELL = [
   './',
   './index.html',

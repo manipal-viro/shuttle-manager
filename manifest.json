@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Office Bus System",
-  "short_name": "BusApp",
+  "name": "MAHE Bus",
+  "short_name": "MAHE Bus",
   "description": "Mark daily bus intent, scan QR to board, and get live arrival alerts.",
   "start_url": "./index.html",
   "scope": "./",
