@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
 <title>MAHE Bus</title>
-<meta name="theme-color" content="#2563eb" />
+<meta name="theme-color" content="#0B0B0E" />
 <meta name="description" content="Mark bus intent, scan QR to board, and get live arrival alerts." />
 
 <!-- PWA -->
@@ -27,7 +27,8 @@
   body { -webkit-tap-highlight-color: transparent; }
   @keyframes slideDown { from { transform: translateY(-120%); } to { transform: translateY(0); } }
   .banner-in { animation: slideDown 0.35s ease-out forwards; }
-  .nav-active { color: #2563eb; }
+  .top-nav-active { background-color: #2563eb; color: white; }
+  .bottom-nav-active { color: #ffffff; }
   #qr-reader-wrap video, #qr-reader-wrap canvas {
     width: 100% !important;
     height: 100% !important;
@@ -56,7 +57,8 @@
 <!-- ===================== HEADER ===================== -->
 <header class="w-full max-w-md px-4 pt-6 pb-2">
   <div class="flex items-center justify-between">
-    <img src="icons/icon-192.png" alt="MAHE Bus" class="w-10 h-10 rounded-xl shadow-sm" />
+    <img src="icons/icon-192.png" alt="MAHE Bus" class="hidden md:block w-10 h-10 rounded-xl shadow-sm" />
+    <span class="md:hidden"></span>
     <span id="connDot" class="w-2.5 h-2.5 rounded-full bg-slate-300" title="Connection status"></span>
   </div>
   <p id="currentUserLine" class="text-xs text-slate-500 mt-2">No name selected yet</p>
@@ -67,9 +69,16 @@
   <p id="iosInstallHint" class="hidden mt-2 text-xs text-slate-500 text-center">
     On iPhone: tap <span class="font-semibold">Share</span> ▵ then <span class="font-semibold">Add to Home Screen</span>.
   </p>
-  <button id="installDiagBtn" class="mt-1 text-xs text-slate-400 underline w-full text-center">Why can't I install?</button>
-  <div id="installDiagResults" class="hidden mt-2 text-xs bg-white rounded-lg p-3 space-y-1 border border-slate-200"></div>
 </header>
+
+<!-- ===================== TOP NAV (desktop only) ===================== -->
+<nav class="hidden md:block w-full max-w-md px-4">
+  <div class="grid grid-cols-3 gap-2 bg-white rounded-xl p-1 shadow-sm">
+    <button data-tab="intent" class="nav-btn-top top-nav-active py-2 rounded-lg text-sm font-semibold transition">Mark Intent</button>
+    <button data-tab="home" class="nav-btn-top py-2 rounded-lg text-sm font-semibold text-slate-600 transition">Home</button>
+    <button data-tab="status" class="nav-btn-top py-2 rounded-lg text-sm font-semibold text-slate-600 transition">Bus Status</button>
+  </div>
+</nav>
 
 <main class="w-full max-w-md px-4 flex-1">
 
@@ -117,6 +126,7 @@
         Stop Scan
       </button>
       <p id="scanStatusMsg" class="text-sm text-center"></p>
+      <p class="text-xs text-slate-400 text-center">QR not scanning? Use the roster below — each name has a "Mark Boarded" button.</p>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm p-4 space-y-3">
@@ -128,46 +138,50 @@
       </div>
       <p class="text-xs text-slate-400">Today's status for the selected trip. Auto-refreshes every 15s. No history is kept — data clears automatically on schedule.</p>
 
-      <div class="flex items-center gap-2 pt-1">
+      <div id="contactsLockedRow" class="flex items-center gap-2 pt-1">
         <input id="contactsPasscode" type="password" placeholder="Admin passcode to show call/WhatsApp"
           class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <button id="unlockContactsBtn" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-lg transition whitespace-nowrap">
           🔒 Unlock
         </button>
       </div>
+      <div id="contactsUnlockedRow" class="hidden items-center justify-between pt-1 text-xs">
+        <span class="text-emerald-600 font-semibold">🔓 Contacts unlocked</span>
+        <button id="forgetPasscodeBtn" class="text-slate-400 underline">Forget passcode</button>
+      </div>
       <p id="contactsStatusMsg" class="text-xs text-center"></p>
 
-      <div class="grid grid-cols-4 gap-1.5 text-center text-xs font-semibold">
-        <div class="bg-emerald-50 text-emerald-700 rounded-lg py-2">
-          <div class="text-lg" id="countBoarded">0</div>Boarded
+      <div class="space-y-3 pt-1">
+        <div class="rounded-xl p-3 bg-emerald-50 border border-emerald-200">
+          <div class="flex items-center justify-between mb-1.5">
+            <h3 class="text-sm font-bold text-emerald-700">✅ Boarded (came)</h3>
+            <span class="text-xs font-bold text-emerald-700" id="countBoarded">0</span>
+          </div>
+          <div id="listBoarded" class="space-y-1.5"></div>
         </div>
-        <div class="bg-amber-50 text-amber-700 rounded-lg py-2">
-          <div class="text-lg" id="countPending">0</div>Pending
-        </div>
-        <div class="bg-rose-50 text-rose-700 rounded-lg py-2">
-          <div class="text-lg" id="countNotRiding">0</div>Not Riding
-        </div>
-        <div class="bg-slate-100 text-slate-600 rounded-lg py-2">
-          <div class="text-lg" id="countNoResponse">0</div>No Response
-        </div>
-      </div>
 
-      <div class="space-y-3 pt-2">
-        <div>
-          <h3 class="text-sm font-bold text-emerald-700 mb-1">✅ Boarded (came)</h3>
-          <div id="listBoarded" class="text-sm text-slate-600 space-y-1"></div>
+        <div class="rounded-xl p-3 bg-amber-50 border border-amber-200">
+          <div class="flex items-center justify-between mb-1.5">
+            <h3 class="text-sm font-bold text-amber-700">🕓 Pending</h3>
+            <span class="text-xs font-bold text-amber-700" id="countPending">0</span>
+          </div>
+          <div id="listPending" class="space-y-1.5"></div>
         </div>
-        <div>
-          <h3 class="text-sm font-bold text-amber-700 mb-1">🕓 Pending (said riding, not boarded yet)</h3>
-          <div id="listPending" class="text-sm text-slate-600 space-y-1"></div>
+
+        <div class="rounded-xl p-3 bg-rose-50 border border-rose-200">
+          <div class="flex items-center justify-between mb-1.5">
+            <h3 class="text-sm font-bold text-rose-700">🚫 Not Riding</h3>
+            <span class="text-xs font-bold text-rose-700" id="countNotRiding">0</span>
+          </div>
+          <div id="listNotRiding" class="space-y-1.5"></div>
         </div>
-        <div>
-          <h3 class="text-sm font-bold text-rose-700 mb-1">🚫 Not Riding</h3>
-          <div id="listNotRiding" class="text-sm text-slate-600 space-y-1"></div>
-        </div>
-        <div>
-          <h3 class="text-sm font-bold text-slate-500 mb-1">❔ No Response Yet</h3>
-          <div id="listNoResponse" class="text-sm text-slate-600 space-y-1"></div>
+
+        <div class="rounded-xl p-3 bg-slate-100 border border-slate-200">
+          <div class="flex items-center justify-between mb-1.5">
+            <h3 class="text-sm font-bold text-slate-600">❔ No Response</h3>
+            <span class="text-xs font-bold text-slate-600" id="countNoResponse">0</span>
+          </div>
+          <div id="listNoResponse" class="space-y-1.5"></div>
         </div>
       </div>
       <p id="rosterStatusMsg" class="text-sm text-center"></p>
@@ -191,21 +205,24 @@
 
 </main>
 
-<!-- ===================== BOTTOM NAV ===================== -->
-<nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-40">
-  <div class="max-w-md mx-auto relative grid grid-cols-3 items-end h-16 px-2">
-    <button data-tab="intent" class="nav-btn flex flex-col items-center justify-center gap-0.5 text-slate-500 text-xs font-semibold h-full">
-      <span class="text-xl">📝</span> Mark Intent
+<!-- ===================== BOTTOM NAV (mobile only) ===================== -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#0B0B0E] border-t border-zinc-800 px-4 py-2 flex justify-around items-end z-50">
+  <button data-tab="intent" class="nav-btn-bottom flex flex-col items-center gap-1 text-zinc-400">
+    <span class="text-lg">📝</span>
+    <span class="text-[10px]">Mark Intent</span>
+  </button>
+
+  <div class="flex flex-col items-center -top-4 relative">
+    <button data-tab="home" class="nav-btn-bottom w-12 h-12 rounded-full bg-white flex items-center justify-center p-1.5 border-2 border-[#18181B] ring-2 ring-purple-500/70 shadow-[0_0_18px_rgba(168,85,247,0.5)]">
+      <img src="icons/icon-192.png" alt="Home" class="w-full h-full object-contain rounded-full" />
     </button>
-    <div class="flex justify-center relative">
-      <button data-tab="home" class="nav-btn absolute -top-7 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center text-2xl ring-4 ring-white">
-        📷
-      </button>
-    </div>
-    <button data-tab="status" class="nav-btn flex flex-col items-center justify-center gap-0.5 text-slate-500 text-xs font-semibold h-full">
-      <span class="text-xl">🚌</span> Bus Status
-    </button>
+    <span class="text-[10px] text-white font-medium mt-1">Home</span>
   </div>
+
+  <button data-tab="status" class="nav-btn-bottom flex flex-col items-center gap-1 text-zinc-400">
+    <span class="text-lg">🚌</span>
+    <span class="text-[10px]">Bus Status</span>
+  </button>
 </nav>
 
 <audio id="hornAudio" preload="auto">
@@ -218,23 +235,20 @@
    ========================================================= */
 const CONFIG = {
   // Paste your Apps Script Web App /exec URL here after deploying Code.gs
-  API_URL: 'https://script.google.com/macros/s/AKfycbxsCz7TJcyDVEWurQamWBd2TDTIFWuC1PFTeLtteNFL49MjWQXSSE2BLxhgc7W77usU/exec',
+  API_URL: 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE',
   TRIPS: ['Morning Pickup', 'Lunch Drop', 'Lunch Pickup', 'Evening Drop'],
-  // Trip time windows in IST, used to pick a sensible default trip automatically.
-  // End times are exclusive; last window (Evening Drop) covers 15:00–20:00.
   TRIP_WINDOWS_IST: [
     { trip: 'Morning Pickup', startMin: 6 * 60,        endMin: 11 * 60 },
     { trip: 'Lunch Drop',     startMin: 11 * 60,        endMin: 13 * 60 + 30 },
     { trip: 'Lunch Pickup',   startMin: 13 * 60 + 30,   endMin: 15 * 60 },
     { trip: 'Evening Drop',   startMin: 15 * 60,        endMin: 20 * 60 }
   ],
-  POLL_INTERVAL_MS: 15000
+  POLL_INTERVAL_MS: 15000,
+  SLOW_RESPONSE_MS: 4000 // after this long, tell the user Apps Script is just slow (not stuck)
 };
 
 /* =========================================================
-   REGISTER SERVICE WORKER — do this immediately (not buried
-   inside init()) so Chrome sees installability criteria met
-   as early as possible.
+   REGISTER SERVICE WORKER
    ========================================================= */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -263,8 +277,6 @@ window.addEventListener('appinstalled', () => {
   document.getElementById('installBtn').classList.add('hidden');
 });
 
-// iOS Safari has no beforeinstallprompt — show manual instructions instead,
-// but only if not already running as an installed/standalone app.
 (function iosInstallHint() {
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true ||
@@ -273,55 +285,6 @@ window.addEventListener('appinstalled', () => {
     document.getElementById('iosInstallHint').classList.remove('hidden');
   }
 })();
-
-// Self-diagnostic: checks the actual criteria Chrome uses for installability
-// so you don't have to guess why the Install button isn't appearing.
-document.getElementById('installDiagBtn').addEventListener('click', async () => {
-  const box = document.getElementById('installDiagResults');
-  box.classList.remove('hidden');
-  box.innerHTML = 'Checking…';
-  const lines = [];
-
-  lines.push(location.protocol === 'https:' || location.hostname === 'localhost'
-    ? '✅ Served over HTTPS'
-    : '❌ NOT served over HTTPS — installability requires it');
-
-  try {
-    const manifestResp = await fetch('manifest.json', { cache: 'no-store' });
-    if (manifestResp.ok) {
-      const manifest = await manifestResp.json();
-      lines.push('✅ manifest.json loads (' + manifestResp.status + ')');
-      let iconsOk = true;
-      for (const icon of (manifest.icons || [])) {
-        try {
-          const iconResp = await fetch(icon.src, { cache: 'no-store' });
-          if (!iconResp.ok) { iconsOk = false; lines.push('❌ Icon missing: ' + icon.src + ' (' + iconResp.status + ')'); }
-        } catch (e) {
-          iconsOk = false;
-          lines.push('❌ Icon failed to load: ' + icon.src);
-        }
-      }
-      if (iconsOk) lines.push('✅ All manifest icons load correctly');
-    } else {
-      lines.push('❌ manifest.json returned ' + manifestResp.status + ' — check the file was uploaded to the repo root');
-    }
-  } catch (e) {
-    lines.push('❌ manifest.json failed to fetch — check <link rel="manifest"> path and that the file exists');
-  }
-
-  if ('serviceWorker' in navigator) {
-    const reg = await navigator.serviceWorker.getRegistration();
-    lines.push(reg ? '✅ Service worker registered (scope: ' + reg.scope + ')' : '❌ No active service worker registration yet — try reloading the page once more');
-  } else {
-    lines.push('❌ This browser does not support service workers');
-  }
-
-  lines.push(deferredInstallPrompt
-    ? '✅ Chrome has already offered the install prompt — the Install App button above should work'
-    : 'ℹ️ Chrome has not fired the install prompt yet. If everything above is ✅, try a hard refresh (clear site data for this domain) — Chrome caches the manifest/service worker aggressively after a redeploy.');
-
-  box.innerHTML = lines.map(l => '<div>' + l + '</div>').join('');
-});
 
 /* =========================================================
    TRIP AUTO-DEFAULT (based on current time in IST)
@@ -364,11 +327,11 @@ function persistSelectedTrip(trip) {
    STATE
    ========================================================= */
 let staffList = [];
-let selectedTrip = null; // resolved in init() once todayStr() etc. are available
+let selectedTrip = null;
 let selectedName = localStorage.getItem('bus_selectedName') || null;
 let selectedStatus = null;
 let html5QrCode = null;
-const lastSeenArrivalIds = {}; // trip -> id already shown
+const lastSeenArrivalIds = {};
 
 /* =========================================================
    HELPERS
@@ -401,7 +364,6 @@ async function apiPost(payload) {
   if (!isApiConfigured()) {
     throw new Error('API_URL is not set yet — paste your Apps Script /exec URL into CONFIG.API_URL in index.html');
   }
-  // text/plain avoids a CORS preflight against Apps Script (which can't answer OPTIONS)
   let res;
   try {
     res = await fetch(CONFIG.API_URL, {
@@ -416,6 +378,24 @@ async function apiPost(payload) {
   return res.json();
 }
 
+// Wraps an API call with a "still working…" message if Apps Script is slow
+// to respond (common right after it's been idle) so it doesn't look stuck.
+async function callWithSlowNotice(promiseFn, msgEl, pendingText, slowText) {
+  msgEl.textContent = pendingText;
+  msgEl.className = 'text-sm text-center text-slate-500';
+  const timer = setTimeout(() => {
+    msgEl.textContent = slowText;
+  }, CONFIG.SLOW_RESPONSE_MS);
+  try {
+    const result = await promiseFn();
+    clearTimeout(timer);
+    return result;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
 function setConnDot(ok) {
   const dot = document.getElementById('connDot');
   dot.className = 'w-2.5 h-2.5 rounded-full ' + (ok ? 'bg-emerald-500' : 'bg-rose-400');
@@ -428,12 +408,17 @@ function updateCurrentUserLine() {
 }
 
 /* =========================================================
-   TABS (bottom nav)
+   TABS (top nav on desktop, bottom nav on mobile — both call setActiveTab)
    ========================================================= */
 function setActiveTab(tabName) {
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    if (b.dataset.tab === 'home') return; // center button keeps its own style
-    b.classList.toggle('nav-active', b.dataset.tab === tabName);
+  document.querySelectorAll('.nav-btn-top').forEach(b => {
+    b.classList.toggle('top-nav-active', b.dataset.tab === tabName);
+    b.classList.toggle('text-slate-600', b.dataset.tab !== tabName);
+  });
+  document.querySelectorAll('.nav-btn-bottom').forEach(b => {
+    if (b.dataset.tab === 'home') return; // center button keeps its own fixed style
+    b.classList.toggle('bottom-nav-active', b.dataset.tab === tabName);
+    b.classList.toggle('text-zinc-400', b.dataset.tab !== tabName);
   });
 
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
@@ -449,7 +434,7 @@ function setActiveTab(tabName) {
   }
 }
 
-document.querySelectorAll('.nav-btn').forEach(btn => {
+document.querySelectorAll('.nav-btn-top, .nav-btn-bottom').forEach(btn => {
   btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
 });
 
@@ -525,16 +510,11 @@ function validateIntentForm() {
 
 document.getElementById('submitIntentBtn').addEventListener('click', async () => {
   const msg = document.getElementById('intentStatusMsg');
-  msg.textContent = 'Submitting…';
-  msg.className = 'text-sm text-center text-slate-500';
   try {
-    const resp = await apiPost({
-      action: 'recordIntent',
-      date: todayStr(),
-      trip: selectedTrip,
-      name: selectedName,
-      status: selectedStatus
-    });
+    const resp = await callWithSlowNotice(
+      () => apiPost({ action: 'recordIntent', date: todayStr(), trip: selectedTrip, name: selectedName, status: selectedStatus }),
+      msg, 'Submitting…', 'Still working… Apps Script can take a few seconds, especially right after being idle.'
+    );
     if (resp.success) {
       msg.textContent = '✅ Intent recorded successfully';
       msg.className = 'text-sm text-center text-emerald-600';
@@ -574,7 +554,7 @@ function startScanner() {
     { facingMode: 'environment' },
     { fps: 10, qrbox: 180 },
     onScanSuccess,
-    () => {} // ignore per-frame scan failures
+    () => {}
   ).catch(err => {
     statusMsg.textContent = '❌ Camera error: ' + err;
     statusMsg.className = 'text-sm text-center text-rose-600';
@@ -591,8 +571,6 @@ function stopScanner() {
   }
 }
 
-// Expected static QR payload: just the trip name (single bus per trip, so no
-// bus number is collected), e.g. "Morning Pickup". JSON {"trip":"..."} also works.
 async function onScanSuccess(decodedText) {
   stopScanner();
   const statusMsg = document.getElementById('scanStatusMsg');
@@ -609,17 +587,11 @@ async function onScanSuccess(decodedText) {
     return;
   }
 
-  statusMsg.textContent = 'Recording your boarding…';
-  statusMsg.className = 'text-sm text-center text-slate-500';
-
   try {
-    const resp = await apiPost({
-      action: 'recordBoarding',
-      date: todayStr(),
-      trip: trip,
-      name: selectedName,
-      status: 'Boarded'
-    });
+    const resp = await callWithSlowNotice(
+      () => apiPost({ action: 'recordBoarding', date: todayStr(), trip: trip, name: selectedName, status: 'Boarded' }),
+      statusMsg, 'Recording your boarding…', 'Still working… Apps Script can take a few seconds, especially right after being idle.'
+    );
     if (resp.success) {
       statusMsg.textContent = resp.duplicate
         ? 'ℹ️ You were already checked in for this trip today.'
@@ -636,10 +608,10 @@ async function onScanSuccess(decodedText) {
 }
 
 /* =========================================================
-   HOME TAB — ROSTER (who's riding / boarded / pending / not riding)
+   HOME TAB — ROSTER
    ========================================================= */
 let rosterInterval = null;
-let contactsMap = null; // name -> phone, populated only after passcode unlock (not persisted)
+let contactsMap = null; // name -> phone, only after passcode unlock
 
 function populateRosterTripSelect() {
   const sel = document.getElementById('rosterTripSelect');
@@ -656,6 +628,28 @@ function populateRosterTripSelect() {
 document.getElementById('rosterTripSelect').addEventListener('change', loadRoster);
 document.getElementById('rosterRefreshBtn').addEventListener('click', loadRoster);
 
+function showContactsUnlockedUI() {
+  document.getElementById('contactsLockedRow').classList.add('hidden');
+  document.getElementById('contactsUnlockedRow').classList.remove('hidden');
+  document.getElementById('contactsUnlockedRow').classList.add('flex');
+}
+function showContactsLockedUI() {
+  document.getElementById('contactsLockedRow').classList.remove('hidden');
+  document.getElementById('contactsUnlockedRow').classList.add('hidden');
+  document.getElementById('contactsUnlockedRow').classList.remove('flex');
+}
+
+async function tryUnlockContacts(passcode, msgEl) {
+  const resp = await apiPost({ action: 'getContacts', passcode });
+  if (!resp.success) throw new Error(resp.error || 'Unknown error');
+  contactsMap = {};
+  resp.data.forEach(p => { contactsMap[p.name] = p.phone; });
+  localStorage.setItem('bus_adminPasscode', passcode);
+  showContactsUnlockedUI();
+  if (msgEl) { msgEl.textContent = ''; }
+  loadRoster();
+}
+
 document.getElementById('unlockContactsBtn').addEventListener('click', async () => {
   const msg = document.getElementById('contactsStatusMsg');
   const passcode = document.getElementById('contactsPasscode').value.trim();
@@ -664,24 +658,34 @@ document.getElementById('unlockContactsBtn').addEventListener('click', async () 
     msg.className = 'text-xs text-center text-amber-600';
     return;
   }
-  msg.textContent = 'Checking…';
-  msg.className = 'text-xs text-center text-slate-500';
   try {
-    const resp = await apiPost({ action: 'getContacts', passcode });
-    if (!resp.success) throw new Error(resp.error || 'Unknown error');
-    contactsMap = {};
-    resp.data.forEach(p => { contactsMap[p.name] = p.phone; });
-    msg.textContent = '✅ Contacts unlocked for this session';
-    msg.className = 'text-xs text-center text-emerald-600';
-    loadRoster();
+    await callWithSlowNotice(() => tryUnlockContacts(passcode, msg), msg, 'Checking…', 'Still working…');
   } catch (err) {
     msg.textContent = '❌ ' + err.message;
     msg.className = 'text-xs text-center text-rose-600';
   }
 });
 
-// Normalizes a raw phone string into tel:/wa.me links. Assumes India (+91)
-// when a 10-digit local number is given with no country code.
+document.getElementById('forgetPasscodeBtn').addEventListener('click', () => {
+  localStorage.removeItem('bus_adminPasscode');
+  contactsMap = null;
+  document.getElementById('contactsPasscode').value = '';
+  showContactsLockedUI();
+  loadRoster();
+});
+
+// Silently try a previously-saved passcode on load so nobody has to retype it.
+async function autoUnlockContacts() {
+  const stored = localStorage.getItem('bus_adminPasscode');
+  if (!stored || contactsMap) return;
+  try {
+    await tryUnlockContacts(stored, null);
+  } catch (e) {
+    // stored passcode no longer valid — clear it and let the user re-enter
+    localStorage.removeItem('bus_adminPasscode');
+  }
+}
+
 function phoneLinks(rawPhone) {
   if (!rawPhone) return null;
   const digits = String(rawPhone).replace(/\D/g, '');
@@ -693,24 +697,78 @@ function phoneLinks(rawPhone) {
   };
 }
 
-function renderRosterGroup(containerId, people, extraFn) {
+async function markBoardedManually(name, btn) {
+  const trip = document.getElementById('rosterTripSelect').value;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const resp = await apiPost({ action: 'recordBoarding', date: todayStr(), trip: trip, name: name, status: 'Boarded (Manual)' });
+    if (!resp.success) throw new Error(resp.error || 'Unknown error');
+    loadRoster();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✅ Board';
+    alert('Could not mark boarded: ' + err.message);
+  }
+}
+
+function renderRosterGroup(containerId, people, options) {
+  options = options || {};
   const el = document.getElementById(containerId);
   if (!people.length) {
-    el.innerHTML = '<p class="text-slate-300 italic">— none —</p>';
+    el.innerHTML = '<p class="text-slate-400 italic text-sm">— none —</p>';
     return;
   }
-  el.innerHTML = people.map(p => {
-    const extra = extraFn ? extraFn(p) : '';
+  el.innerHTML = '';
+  people.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-2 bg-white/60 rounded-lg px-2 py-1.5';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'font-medium text-sm ' + (options.nameColorClass || 'text-slate-700');
+    nameSpan.textContent = p.name;
+
+    const rightWrap = document.createElement('div');
+    rightWrap.className = 'flex items-center gap-2 shrink-0';
+
+    if (options.extra && p.time) {
+      const extraSpan = document.createElement('span');
+      extraSpan.className = 'text-xs text-slate-400';
+      extraSpan.textContent = p.time;
+      rightWrap.appendChild(extraSpan);
+    }
+
+    if (options.showBoardButton) {
+      const boardBtn = document.createElement('button');
+      boardBtn.className = 'text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-md';
+      boardBtn.textContent = '✅ Board';
+      boardBtn.addEventListener('click', () => markBoardedManually(p.name, boardBtn));
+      rightWrap.appendChild(boardBtn);
+    }
+
     const phone = contactsMap ? contactsMap[p.name] : null;
     const links = phoneLinks(phone);
-    const contactHtml = links
-      ? `<a href="${links.tel}" class="ml-2 text-blue-600" title="Call">📞</a>
-         <a href="${links.wa}" target="_blank" rel="noopener" class="ml-1 text-emerald-600" title="WhatsApp">💬</a>`
-      : '';
-    return `<div class="flex items-center justify-between border-b border-slate-50 pb-1">
-      <span>${p.name}${contactHtml}</span><span class="text-xs text-slate-400">${extra}</span>
-    </div>`;
-  }).join('');
+    if (links) {
+      const callA = document.createElement('a');
+      callA.href = links.tel;
+      callA.title = 'Call';
+      callA.className = 'text-blue-600 text-base';
+      callA.textContent = '📞';
+      const waA = document.createElement('a');
+      waA.href = links.wa;
+      waA.target = '_blank';
+      waA.rel = 'noopener';
+      waA.title = 'WhatsApp';
+      waA.className = 'text-emerald-600 text-base';
+      waA.textContent = '💬';
+      rightWrap.appendChild(callA);
+      rightWrap.appendChild(waA);
+    }
+
+    row.appendChild(nameSpan);
+    row.appendChild(rightWrap);
+    el.appendChild(row);
+  });
 }
 
 async function loadRoster() {
@@ -726,10 +784,10 @@ async function loadRoster() {
     document.getElementById('countNotRiding').textContent = resp.data.notRiding.length;
     document.getElementById('countNoResponse').textContent = resp.data.noResponse.length;
 
-    renderRosterGroup('listBoarded', resp.data.boarded, p => p.time || '');
-    renderRosterGroup('listPending', resp.data.pending);
-    renderRosterGroup('listNotRiding', resp.data.notRiding);
-    renderRosterGroup('listNoResponse', resp.data.noResponse);
+    renderRosterGroup('listBoarded', resp.data.boarded, { nameColorClass: 'text-emerald-800', extra: true });
+    renderRosterGroup('listPending', resp.data.pending, { nameColorClass: 'text-amber-800', showBoardButton: true });
+    renderRosterGroup('listNotRiding', resp.data.notRiding, { nameColorClass: 'text-rose-800', showBoardButton: true });
+    renderRosterGroup('listNoResponse', resp.data.noResponse, { nameColorClass: 'text-slate-700', showBoardButton: true });
 
     msg.textContent = '';
   } catch (err) {
@@ -766,12 +824,11 @@ function populateStatusTripSelect() {
 document.getElementById('announceBtn').addEventListener('click', async () => {
   const msg = document.getElementById('statusMsg');
   const trip = document.getElementById('statusTripSelect').value;
-
-  msg.textContent = 'Broadcasting…';
-  msg.className = 'text-sm text-center text-slate-500';
-
   try {
-    const resp = await apiPost({ action: 'announceArrival', trip });
+    const resp = await callWithSlowNotice(
+      () => apiPost({ action: 'announceArrival', trip }),
+      msg, 'Broadcasting…', 'Still working… Apps Script can take a few seconds, especially right after being idle.'
+    );
     if (resp.success) {
       msg.textContent = '✅ Announcement sent to all devices';
       msg.className = 'text-sm text-center text-emerald-600';
@@ -798,7 +855,7 @@ function showArrivalBanner(trip) {
   const audio = document.getElementById('hornAudio');
   audio.currentTime = 0;
   audio.volume = 1.0;
-  audio.play().catch(() => {}); // browsers may block autoplay until first user gesture
+  audio.play().catch(() => {});
 
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 }
@@ -853,7 +910,8 @@ async function init() {
   }
   validateIntentForm();
 
-  setActiveTab('home'); // Home (Scan + Roster) is the landing page
+  setActiveTab('home');
+  await autoUnlockContacts();
 
   await loadStaff();
   await pollArrivals();
