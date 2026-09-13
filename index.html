@@ -129,8 +129,15 @@
       </p>
       <p class="text-xs text-slate-400 text-center">Pick your name in "Mark Intent" first if this is empty.</p>
 
-      <div id="qr-reader-wrap" class="mx-auto rounded-full overflow-hidden border-4 border-blue-500 shadow-lg bg-slate-900" style="width:220px;height:220px;">
-        <div id="qr-reader" style="width:100%;height:100%;"></div>
+      <div id="qr-reader-wrap" class="relative mx-auto rounded-2xl overflow-hidden border-2 border-[#002D62] shadow-md bg-slate-50 flex items-center justify-center" style="width:150px;height:150px;">
+        <div id="qr-reader" class="absolute inset-0"></div>
+        <svg id="qrFrameIcon" viewBox="0 0 100 100" class="w-16 h-16 text-[#002D62]" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round">
+          <path d="M8 30 V12 a4 4 0 0 1 4 -4 H30" />
+          <path d="M70 8 H88 a4 4 0 0 1 4 4 V30" />
+          <path d="M92 70 V88 a4 4 0 0 1 -4 4 H70" />
+          <path d="M30 92 H12 a4 4 0 0 1 -4 -4 V70" />
+          <rect x="38" y="38" width="24" height="24" rx="3" fill="currentColor" stroke="none" opacity="0.5" />
+        </svg>
       </div>
 
       <button id="startScanBtn" class="w-full bg-[#002D62] hover:bg-[#001f47] text-white font-semibold py-2.5 rounded-lg text-sm transition">
@@ -145,7 +152,9 @@
         ✅ QR not working — mark me boarded
       </button>
 
-      <button id="viewLocationBtn" class="w-full text-xs text-[#002D62] underline">📍 View live bus location</button>
+      <button id="viewLocationBtn" class="w-full bg-[#EAF0F7] hover:bg-[#DCE6F2] border border-[#002D62]/30 text-[#002D62] font-semibold py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-1.5">
+        📍 View Live Bus Location
+      </button>
       <p id="viewLocationMsg" class="text-xs text-center text-slate-400"></p>
     </div>
 
@@ -240,7 +249,6 @@
     </div>
 
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 space-y-3">
-      <p class="text-xs text-slate-500">Driver only: share this phone's live location so others can see where the bus is on the Home tab.</p>
       <button id="shareLocationBtn" class="w-full bg-[#002D62] hover:bg-[#001f47] text-white font-semibold py-2.5 rounded-lg text-sm transition">
         📍 Start Sharing Live Location
       </button>
@@ -278,7 +286,7 @@
    ========================================================= */
 const CONFIG = {
   // Paste your Apps Script Web App /exec URL here after deploying Code.gs
-  API_URL: 'https://script.google.com/macros/s/AKfycbxsCz7TJcyDVEWurQamWBd2TDTIFWuC1PFTeLtteNFL49MjWQXSSE2BLxhgc7W77usU/exec',
+  API_URL: 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE',
   TRIPS: ['Morning Pickup', 'Lunch Drop', 'Lunch Pickup', 'Evening Drop'],
   TRIP_WINDOWS_IST: [
     { trip: 'Morning Pickup', startMin: 6 * 60,        endMin: 11 * 60 },
@@ -399,6 +407,23 @@ function isApiConfigured() {
   return CONFIG.API_URL && !CONFIG.API_URL.includes('PASTE_YOUR');
 }
 
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Mobile networks are often slow/flaky (weak signal, data saver, brief drops),
+// which shows up as a fetch-level network error even though the API itself
+// is fine. One quiet retry after a short pause resolves most of those before
+// the user ever sees an error.
+async function fetchWithRetry(url, options, retries) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (e) {
+      if (attempt >= retries) throw e;
+      await sleep(700 * (attempt + 1));
+    }
+  }
+}
+
 async function apiGet(params) {
   if (!isApiConfigured()) {
     throw new Error('API_URL is not set yet — paste your Apps Script /exec URL into CONFIG.API_URL in index.html');
@@ -406,9 +431,9 @@ async function apiGet(params) {
   const url = CONFIG.API_URL + '?' + new URLSearchParams(params).toString();
   let res;
   try {
-    res = await fetch(url);
+    res = await fetchWithRetry(url, undefined, 1);
   } catch (e) {
-    throw new Error('Network/CORS error reaching the API — check the URL is correct and the Apps Script deployment access is set to "Anyone"');
+    throw new Error('Network/CORS error reaching the API — check the URL is correct, the Apps Script deployment access is set to "Anyone", and your connection is stable');
   }
   if (!res.ok) throw new Error('API returned HTTP ' + res.status);
   return res.json();
@@ -420,13 +445,13 @@ async function apiPost(payload) {
   }
   let res;
   try {
-    res = await fetch(CONFIG.API_URL, {
+    res = await fetchWithRetry(CONFIG.API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
-    });
+    }, 1);
   } catch (e) {
-    throw new Error('Network/CORS error reaching the API — check the URL is correct and the Apps Script deployment access is set to "Anyone"');
+    throw new Error('Network/CORS error reaching the API — check the URL is correct, the Apps Script deployment access is set to "Anyone", and your connection is stable');
   }
   if (!res.ok) throw new Error('API returned HTTP ' + res.status);
   return res.json();
@@ -685,12 +710,14 @@ function startScanner() {
   }
   document.getElementById('startScanBtn').classList.add('hidden');
   document.getElementById('stopScanBtn').classList.remove('hidden');
+  document.getElementById('qrFrameIcon').classList.add('hidden');
+  document.getElementById('qr-reader-wrap').classList.replace('bg-slate-50', 'bg-slate-900');
   statusMsg.textContent = '';
 
   html5QrCode = new Html5Qrcode('qr-reader');
   html5QrCode.start(
     { facingMode: 'environment' },
-    { fps: 10, qrbox: 180 },
+    { fps: 10, qrbox: 120 },
     onScanSuccess,
     () => {}
   ).catch(err => {
@@ -703,6 +730,8 @@ function startScanner() {
 function stopScanner() {
   document.getElementById('startScanBtn').classList.remove('hidden');
   document.getElementById('stopScanBtn').classList.add('hidden');
+  document.getElementById('qrFrameIcon').classList.remove('hidden');
+  document.getElementById('qr-reader-wrap').classList.replace('bg-slate-900', 'bg-slate-50');
   if (html5QrCode) {
     html5QrCode.stop().then(() => html5QrCode.clear()).catch(() => {});
     html5QrCode = null;
