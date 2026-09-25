@@ -289,7 +289,7 @@
    ========================================================= */
 const CONFIG = {
   // Paste your Apps Script Web App /exec URL here after deploying Code.gs
-  API_URL: 'https://script.google.com/macros/s/AKfycbxsCz7TJcyDVEWurQamWBd2TDTIFWuC1PFTeLtteNFL49MjWQXSSE2BLxhgc7W77usU/exec',
+  API_URL: 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE',
   TRIPS: ['Morning Pickup', 'Lunch Drop', 'Lunch Pickup', 'Evening Drop'],
   TRIP_WINDOWS_IST: [
     { trip: 'Morning Pickup', startMin: 6 * 60,        endMin: 11 * 60 },
@@ -320,7 +320,7 @@ function onesignalReady(fn) { window.OneSignalDeferred.push(fn); }
 
 onesignalReady(async function (OneSignal) {
   await OneSignal.init({
-    appId: '0f8290c1-3d42-4314-8266-955ed953bd0f',
+    appId: 'PASTE_YOUR_ONESIGNAL_APP_ID_HERE',
     // Own subfolder + scope so this worker never collides with our
     // offline-caching sw.js, which owns the root scope.
     serviceWorkerPath: 'push/onesignal/OneSignalSDKWorker.js',
