@@ -324,7 +324,7 @@ onesignalReady(async function (OneSignal) {
     // Own subfolder + scope so this worker never collides with our
     // offline-caching sw.js, which owns the root scope.
     serviceWorkerPath: 'push/onesignal/OneSignalSDKWorker.js',
-    serviceWorkerParam: { scope: '/push/onesignal/' }
+    serviceWorkerParam: { scope: 'push/onesignal/' }
   });
   // If a name was already picked in a previous session, link it now so
   // targeted reminders work even if push was enabled before picking a name.
