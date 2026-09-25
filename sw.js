@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mahe-bus-v8';
+const CACHE_NAME = 'mahe-bus-v9';
 const APP_SHELL = [
   './',
   './index.html',
