@@ -120,12 +120,21 @@
       </button>
       <p id="intentStatusMsg" class="text-sm text-center"></p>
 
-      <button id="enableRemindersBtn" class="w-full text-xs text-slate-400 underline pt-1">🔔 Remind me to mark intent</button>
+      <button id="enableRemindersBtn" class="w-full bg-[#E65100] hover:bg-[#c94400] text-white font-semibold py-2.5 rounded-lg text-sm transition mt-1">
+        🔔 Enable Notifications
+      </button>
     </div>
   </section>
 
   <!-- ===================== TAB: HOME (Scan + Roster) ===================== -->
   <section id="tab-home" class="tab-panel mt-2 space-y-4">
+    <div id="homeNotifyCard" class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+      <button id="enableRemindersHomeBtn" class="w-full bg-[#E65100] hover:bg-[#c94400] text-white font-semibold py-2.5 rounded-lg text-sm transition">
+        🔔 Enable Notifications
+      </button>
+      <p class="text-xs text-slate-400 text-center mt-1">Get alerted the moment the bus arrives or leaves — even with the app closed.</p>
+    </div>
+
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 space-y-3">
       <p class="text-sm text-slate-600 text-center">
         Boarding as: <span id="scanUserName" class="font-semibold text-slate-800">— none selected —</span>
@@ -677,13 +686,19 @@ document.getElementById('locationSelect').addEventListener('change', (e) => {
      once push is working, since it never fires twice for the same trip/day.
    ========================================================= */
 function updateReminderButtonLabel() {
-  const btn = document.getElementById('enableRemindersBtn');
-  btn.textContent = localStorage.getItem('bus_remindersEnabled') === 'true'
-    ? '🔔 Reminders enabled'
-    : '🔔 Remind me to mark intent';
+  const enabled = localStorage.getItem('bus_remindersEnabled') === 'true';
+  ['enableRemindersBtn', 'enableRemindersHomeBtn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.textContent = enabled ? '🔔 Notifications enabled' : '🔔 Enable Notifications';
+    btn.disabled = enabled;
+    btn.classList.toggle('opacity-60', enabled);
+  });
+  const homeCard = document.getElementById('homeNotifyCard');
+  if (homeCard) homeCard.classList.toggle('hidden', enabled);
 }
 
-document.getElementById('enableRemindersBtn').addEventListener('click', () => {
+async function enableReminders() {
   onesignalReady(async (OneSignal) => {
     try {
       await OneSignal.Notifications.requestPermission();
@@ -696,6 +711,11 @@ document.getElementById('enableRemindersBtn').addEventListener('click', () => {
       alert('Could not enable push reminders — you can allow notifications from your browser/site settings any time.');
     }
   });
+}
+
+['enableRemindersBtn', 'enableRemindersHomeBtn'].forEach(id => {
+  const btn = document.getElementById(id);
+  if (btn) btn.addEventListener('click', enableReminders);
 });
 
 // Fires a one-time-per-window LOCAL reminder if the currently active trip
